@@ -1,56 +1,47 @@
-import { tasks } from "../data/task.js";
-import type { Task } from "../models/task.js";
+import { tasks } from '../data/task.js';
+import { AppError } from '../errors/app-error.js';
+import type { Task } from '../models/task.js';
 
 export const listTasks = (): readonly Task[] => tasks;
 
-export const findTaskById = (id: number): Task | undefined =>
-    tasks.find((task) => task.id === id);
+export const findTaskById = (id: number): Task => {
+    const task = tasks.find((item) => item.id === id);
 
-export const createTask = (title: string): Task => {
-    const cleanTitle = title.trim();
-
-    if (!cleanTitle) {
-        throw new Error('El título de la tarea es obligatorio.');
+    if (!task) {
+        throw new AppError(`No existe una tarea con el id ${id}.`, 404);
     }
 
-    const nextId = Math.max(0, ...tasks.map((task) => task.id)) + 1;
-    const newTask: Task = {
-        id: nextId,
-        title: cleanTitle,
+    return task;
+};
+
+export const createTask = (title: unknown): Task => {
+    if (typeof title !== 'string' || !title.trim()) {
+        throw new AppError('El campo title es obligatorio.', 400);
+    }
+
+    const task: Task = {
+        id: Math.max(0, ...tasks.map((item) => item.id)) + 1,
+        title: title.trim(),
         status: 'pending',
         createdAt: new Date()
     };
 
-    tasks.push(newTask);
-    return newTask;
+    tasks.push(task);
+    return task;
 };
 
 export const completeTask = (id: number): Task => {
     const task = findTaskById(id);
-
-    if (!task) {
-        throw new Error(`No existe una tarea con el id ${id}.`);
-    }
-
     task.status = 'completed';
     return task;
 };
 
-export const deleteTask = (id: number): Task => {
-    const task = findTaskById(id);
+export const deleteTask = (id: number): void => {
+    const index = tasks.findIndex((item) => item.id === id);
 
-    if (!task) {
-        throw new Error(`No existe una tarea con el id ${id}.`);
+    if (index === -1) {
+        throw new AppError(`No existe una tarea con el id ${id}.`, 404);
     }
 
-    const index = tasks.findIndex((t) => t.id === id);
-    if (index !== -1) {
-        tasks.splice(index, 1);
-    }
-
-    return task;
-};
-
-export const listPendingTasks = (): readonly Task[] => {
-    return tasks.filter((task) => task.status === 'pending');
+    tasks.splice(index, 1);
 };
