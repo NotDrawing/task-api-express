@@ -12,3 +12,7 @@ export const connectDatabase = async (
     });
     console.log('Conexión con MongoDB establecida.');
 };
+export const disconnectDatabase = async (): Promise<void> => {
+    await mongoose.disconnect();
+    console.log('Conexión con MongoDB cerrada.');
+};
