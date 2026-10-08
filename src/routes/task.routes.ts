@@ -7,7 +7,7 @@ import {
     removeTask
 } from '../controllers/task.controller.js';
 import { requireJson } from '../middleware/require-json.middleware.js';
-import { validateTaskId } from '../middleware/validate-task.middleware.js';
+import { validateTaskId } from '../middleware/validate-task-id.middleware.js';
 import { validateTaskTitle } from '../middleware/validate-task-title.middleware.js';
 
 export const taskRouter = Router();
