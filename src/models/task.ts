@@ -3,21 +3,30 @@ import { Schema, model } from 'mongoose';
 export const TASK_STATUSES = ['pending', 'completed'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-// Campos que se guardan en MongoDB (sin _id, Mongoose lo agrega solo)
+export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
 export interface TaskPersistence {
     title: string;
     status: TaskStatus;
+    priority: TaskPriority;
     createdAt: Date;
     updatedAt: Date;
 }
 
-// Forma pública que devuelve la API (id como string)
 export interface Task {
     id: string;
     title: string;
     status: TaskStatus;
+    priority: TaskPriority;
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface TaskUpdate {
+    title?: string;
+    status?: TaskStatus;
+    priority?: TaskPriority;
 }
 
 const taskSchema = new Schema<TaskPersistence>(
@@ -32,6 +41,11 @@ const taskSchema = new Schema<TaskPersistence>(
             type: String,
             enum: TASK_STATUSES,
             default: 'pending'
+        },
+        priority: {
+            type: String,
+            enum: TASK_PRIORITIES,
+            default: 'medium'
         }
     },
     {
