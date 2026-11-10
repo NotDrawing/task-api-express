@@ -41,6 +41,21 @@ const readJwtExpiration = (): string => {
 };
 
 // Rechaza cero, negativos, decimales y texto para evitar límites ambiguos.
+// Lista opcional de servidores DNS separados por comas. Node los necesita para
+// resolver el registro SRV de MongoDB Atlas cuando el DNS de la red no responde.
+const readDnsServers = (): string[] => {
+  const raw = process.env.MONGODB_DNS_SERVERS?.trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((server) => server.trim())
+    .filter((server) => server.length > 0);
+};
+
 const readPositiveInteger = (name: string, fallback: number): number => {
   const value = Number(process.env[name] ?? fallback);
 
@@ -55,6 +70,7 @@ export interface EnvironmentConfig {
   port: number;
   mongodbUri: string;
   mongodbDbName: string;
+  mongodbDnsServers: string[];
   jwtSecret: string;
   jwtExpiresIn: string;
   jwtIssuer: string;
@@ -69,6 +85,7 @@ export const loadEnvironment = (): EnvironmentConfig => {
     port: readPort(),
     mongodbUri: requireEnvironmentVariable('MONGODB_URI'),
     mongodbDbName: requireEnvironmentVariable('MONGODB_DB_NAME'),
+    mongodbDnsServers: readDnsServers(),
     jwtSecret: readJwtSecret(),
     jwtExpiresIn: readJwtExpiration(),
     jwtIssuer: process.env.JWT_ISSUER?.trim() || 'task-api-express',

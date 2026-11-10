@@ -43,6 +43,7 @@ const startServer = async (): Promise<void> => {
     await connectDatabase({
       uri: env.mongodbUri,
       dbName: env.mongodbDbName,
+      dnsServers: env.mongodbDnsServers,
     });
 
     // Si llegó una señal mientras se conectaba, no se abre el puerto.

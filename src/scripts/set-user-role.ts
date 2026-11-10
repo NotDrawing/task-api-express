@@ -11,7 +11,11 @@ const run = async (): Promise<void> => {
     throw new Error('Uso: pnpm role:set <correo> <user|admin>');
   }
 
-  await connectDatabase({ uri: env.mongodbUri, dbName: env.mongodbDbName });
+  await connectDatabase({
+    uri: env.mongodbUri,
+    dbName: env.mongodbDbName,
+    dnsServers: env.mongodbDnsServers,
+  });
   const user = await setUserRoleByEmail(email, role);
   if (!user) throw new Error(`No existe un usuario con el correo ${email}.`);
   console.log(`Rol actualizado: ${user.email} ahora es ${user.role}.`);
