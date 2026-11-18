@@ -1,0 +1,748 @@
+{
+  "info": {
+    "name": "Task API - EC3 F2 A11",
+    "description": "Autenticación JWT, identidad y autorización por roles (EC3 F2 A11). Ejecuta las carpetas en orden: 'register' genera un correo único y guarda {{userEmail}}; 'login' guarda {{token}}; 'crear tarea' guarda {{taskId}}. Para el DELETE admin ejecuta antes: pnpm role:set <correo> admin y luego el login admin.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    },
+    {
+      "key": "userPassword",
+      "value": "Frase segura para clase 2026"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    },
+    {
+      "key": "missingId",
+      "value": "507f1f77bcf86cd799439011"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Documentación",
+      "item": [
+        {
+          "name": "GET /api-docs.json (OpenAPI 3.1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-docs.json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-docs.json"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('openapi 3.1.0', () => pm.expect(body.openapi).to.eql('3.1.0'));",
+                  "pm.test('define bearerAuth', () => pm.expect(body.components.securitySchemes.bearerAuth.scheme).to.eql('bearer'));",
+                  "pm.test('incluye /api/auth/me', () => pm.expect(body.paths['/api/auth/me']).to.be.an('object'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api-docs (Swagger UI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-docs/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-docs", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Es HTML de Swagger', () => { pm.response.to.have.header('Content-Type'); pm.expect(pm.response.text()).to.include('id=\"swagger-ui\"'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Autenticación pública",
+      "item": [
+        {
+          "name": "POST /api/auth/register (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"ana.torres@example.com\",\n  \"password\": \"Frase segura para clase 2026\",\n  \"confirmPassword\": \"Frase segura para clase 2026\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Correo único por ejecución para evitar 409 al repetir la colección.",
+                  "const email = 'ana.' + Date.now() + '@example.com';",
+                  "pm.collectionVariables.set('userEmail', email);",
+                  "const body = JSON.parse(pm.request.body.raw);",
+                  "body.email = email;",
+                  "pm.request.body.raw = JSON.stringify(body, null, 2);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve data.user', () => pm.expect(body.data.user).to.be.an('object'));",
+                  "pm.test('Rol siempre user', () => pm.expect(body.data.user.role).to.eql('user'));",
+                  "pm.test('No expone passwordHash', () => pm.expect(body.data.user.passwordHash).to.be.undefined);",
+                  "pm.test('No expone password', () => pm.expect(body.data.user.password).to.be.undefined);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST register intentando rol admin (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Intruso\",\n  \"email\": \"intruso@example.com\",\n  \"password\": \"Frase segura para clase 2026\",\n  \"confirmPassword\": \"Frase segura para clase 2026\",\n  \"role\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 422', () => pm.response.to.have.status(422));",
+                  "const body = pm.response.json();",
+                  "pm.test('code AUTH_VALIDATION_ERROR', () => pm.expect(body.error.code).to.eql('AUTH_VALIDATION_ERROR'));",
+                  "pm.test('role marcado como no permitido', () => { const d = body.error.details || []; pm.expect(d.some((i) => i.field === 'role')).to.eql(true); });",
+                  "pm.test('Incluye requestId', () => pm.expect(body.error.requestId).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST register duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Frase segura para clase 2026\",\n  \"confirmPassword\": \"Frase segura para clase 2026\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('code USER_EMAIL_EXISTS', () => pm.expect(pm.response.json().error.code).to.eql('USER_EMAIL_EXISTS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve user, accessToken, tokenType y expiresIn', () => { pm.expect(body.data.user).to.be.an('object'); pm.expect(body.data.accessToken).to.be.a('string'); pm.expect(body.data.tokenType).to.eql('Bearer'); pm.expect(body.data.expiresIn).to.be.a('string'); });",
+                  "pm.test('No expone passwordHash', () => pm.expect(body.data.user.passwordHash).to.be.undefined);",
+                  "pm.collectionVariables.set('token', body.data.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login credenciales inválidas (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Contraseña incorrecta 123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('code INVALID_CREDENTIALS', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Identidad /me",
+      "item": [
+        {
+          "name": "GET /api/auth/me con token (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Correo coincide', () => pm.expect(body.data.user.email).to.eql(pm.collectionVariables.get('userEmail')));",
+                  "pm.test('No expone passwordHash', () => pm.expect(body.data.user.passwordHash).to.be.undefined);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/auth/me sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('code AUTHENTICATION_REQUIRED', () => pm.expect(pm.response.json().error.code).to.eql('AUTHENTICATION_REQUIRED'));",
+                  "pm.test('Incluye requestId', () => pm.expect(pm.response.json().error.requestId).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/auth/me token inválido (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer token.falso.invalido" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('code INVALID_TOKEN', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_TOKEN'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Tareas protegidas (rol user)",
+      "item": [
+        {
+          "name": "GET /api/tasks sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('code AUTHENTICATION_REQUIRED', () => pm.expect(pm.response.json().error.code).to.eql('AUTHENTICATION_REQUIRED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/tasks (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tarea de EC3\",\n  \"description\": \"Creada con JWT de rol user\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('taskId', body.data.id);",
+                  "pm.test('No expone _id ni __v', () => { pm.expect(body.data).to.not.have.property('_id'); pm.expect(body.data).to.not.have.property('__v'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/tasks (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('data es arreglo y trae meta', () => { pm.expect(body.data).to.be.an('array'); pm.expect(body.meta).to.be.an('object'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/tasks/{{taskId}} (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Devuelve la tarea creada', () => pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('taskId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/tasks/{{taskId}} (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tarea de EC3 (editada)\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Título actualizado', () => pm.expect(pm.response.json().data.title).to.eql('Tarea de EC3 (editada)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/tasks/{{taskId}}/complete (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}", "complete"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status completed', () => pm.expect(pm.response.json().data.status).to.eql('completed'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/tasks/{{taskId}} como user (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('code FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));",
+                  "pm.test('Incluye requestId', () => pm.expect(pm.response.json().error.requestId).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Autorización admin (DELETE)",
+      "item": [
+        {
+          "name": "POST login admin (guarda adminToken)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('adminToken', body.data.accessToken);",
+                  "pm.test('Rol admin (requiere pnpm role:set)', () => pm.expect(body.data.user.role).to.eql('admin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/tasks para admin (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tarea que solo el admin borrará\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('taskId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/tasks/{{taskId}} como admin (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Regresión y errores uniformes",
+      "item": [
+        {
+          "name": "GET /health (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('data.status = up', () => pm.expect(pm.response.json().data.status).to.eql('up'));",
+                  "pm.test('Sin x-powered-by', () => pm.expect(pm.response.headers.get('x-powered-by')).to.be.undefined);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/tasks?page=0 (422)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?page=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"],
+              "query": [{ "key": "page", "value": "0" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 422', () => pm.response.to.have.status(422));",
+                  "const body = pm.response.json();",
+                  "pm.test('code QUERY_VALIDATION_ERROR', () => pm.expect(body.error.code).to.eql('QUERY_VALIDATION_ERROR'));",
+                  "pm.test('Incluye requestId', () => pm.expect(body.error.requestId).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/tasks/{{missingId}} (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{missingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{missingId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('code TASK_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('TASK_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

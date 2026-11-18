@@ -48,6 +48,9 @@ const mapPersistenceError = (error: unknown): AppError => {
     );
   }
 
+  // El cliente recibe un mensaje genérico, pero el detalle queda en el log del servidor.
+  console.error('Error inesperado al acceder al almacenamiento de tareas.', error);
+
   return new AppError(
     'No fue posible acceder al almacenamiento de tareas.',
     503,
